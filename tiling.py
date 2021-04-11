@@ -8,12 +8,19 @@ class Point:
 	def __init__(self, x: QuadraticRational, y: QuadraticRational, z: QuadraticRational):
 		assert (x ** 2 + y ** 2) * sqrt(2) == z ** 2 - 1, f"invalid coordinates: x={x}, y={y}, z={z}"
 
-		self.x = x
-		self.y = y
-		self.z = z
+		self.x = QuadraticRational.convert(x)
+		self.y = QuadraticRational.convert(y)
+		self.z = QuadraticRational.convert(z)
+
+	@property
+	def poincare(self) -> complex:
+		return (self.x.value + self.y.value * 1j) * 2 ** 0.25 / (1 + self.z.value)	
 
 	def __eq__(self, other: "Point") -> bool:
 		return self.x == other.x and self.y == other.y
+
+	def __hash__(self):
+		return hash(self.poincare)	
 
 	def __repr__(self) -> str:
 		return f"Point(x={self.x}, y={self.y}, z={self.z})"
@@ -69,6 +76,8 @@ def main():
 	assert Line.from_points(origin, point_2).symmetry(point_3) == point_1
 	assert Line.from_points(origin, point_3).symmetry(point_1) == point_2
 	assert Line.from_points(origin, point_3).symmetry(point_2) == point_1
+
+	print(point_1.poincare, point_2.poincare, point_3.poincare)
 
 
 main()

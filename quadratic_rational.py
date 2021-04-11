@@ -82,6 +82,10 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 	def reduce(self) -> "QuadraticInteger":
 		numbers = self.__products__[self.coefficients != 0]
 		return self.rebase(tuple(numbers.flatten()))
+
+	@property	
+	def value(self) -> float:
+		return np.sum(self.coefficients * np.sqrt(self.__products__))
 	
 	def __neg__(self) -> "QuadraticInteger":
 		return type(self)(-self.coefficients)
@@ -203,6 +207,10 @@ class QuadraticRational:
 		if not isinstance(number, QuadraticRational):
 			return QuadraticRational(number, 1)
 		return number
+	
+	@property
+	def value(self) -> float:
+		return self.numerator.value / self.denominator
 	
 	def __neg__(self) -> "QuadraticRational":
 		return type(self)(-self.numerator, self.denominator)
