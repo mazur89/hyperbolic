@@ -57,9 +57,15 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 		assert coefficients.shape == self.__products__.shape
 		self.coefficients = coefficients
 	
+	def as_int(self) -> int:
+		assert self.__products__.ndim == 0, "{self} cannot be represented as an integer"
+		return int(self.coefficients)
+
 	@staticmethod
-	def from_int(number: int) -> "QuadraticInteger":
-		return QuadraticInteger(np.array(number))
+	def convert(number: Union[int, "QuadraticInteger"]) -> "QuadraticInteger":
+		if not isinstance(number, QuadraticInteger):
+			return QuadraticInteger(np.array(number))
+		return number
 
 	def rebase(self, numbers: Tuple[int, ...]) -> "QuadraticInteger":
 		new_quadratic_integer = QuadraticInteger[numbers]
@@ -81,8 +87,7 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 		return type(self)(-self.coefficients)
 	
 	def __add__(self, other: Union[int, "QuadraticInteger"]) -> "QuadraticInteger":
-		if isinstance(other, int):
-			other = QuadraticInteger.from_int(other)
+		other = QuadraticInteger.convert(other)
 
 		new_numbers = tuple(self.__products__.flatten()) + tuple(other.__products__.flatten())
 		
@@ -101,8 +106,7 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 		return -self + other
 
 	def __mul__(self, other: Union[int, "QuadraticInteger"]) -> "QuadraticInteger":
-		if isinstance(other, int):
-			other = QuadraticInteger.from_int(other)
+		other = QuadraticInteger.convert(other)
 
 		new_numbers = tuple(self.__products__.flatten()) + tuple(other.__products__.flatten())
 		
@@ -129,6 +133,10 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 
 	def __rtruediv__(self, other: Union[int, "QuadraticInteger"]) -> "QuadraticRational":
 		return QuadraticRational(other, self)
+	
+	def __eq__(self, other: Union[int, "QuadraticInteger"]) -> bool:
+		other = QuadraticInteger.convert(other)
+		return np.all(self.__products__ == other.__products__) and np.all(self.coefficients == other.coefficients)
 
 	def __repr__(self) -> str:
 		res = ""
@@ -152,7 +160,9 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 
 			if res.startswith(" "):
 				res = res[1:]
-			
+		
+		if res == "":
+			return "0"
 		return res
 
 
@@ -171,6 +181,8 @@ class QuadraticRational:
 			numerator = -numerator
 			denominator = -denominator
 
+		numerator = QuadraticInteger.convert(numerator)
+
 		self.numerator = numerator
 		self.denominator = denominator
 
@@ -186,14 +198,17 @@ class QuadraticRational:
 		self.numerator.coefficients //= factor
 		self.denominator //= factor
 	
+	@staticmethod
+	def convert(number: Union[int, QuadraticInteger, "QuadraticRational"]):
+		if not isinstance(number, QuadraticRational):
+			return QuadraticRational(number, 1)
+		return number
+	
 	def __neg__(self) -> "QuadraticRational":
 		return type(self)(-self.numerator, self.denominator)
 
 	def __add__(self, other: Union[int, QuadraticInteger, "QuadraticRational"]) -> "QuadraticRational":
-		if isinstance(other, int):
-			other = QuadraticInteger.from_int(other)
-		if isinstance(other, QuadraticInteger):
-			other = QuadraticRational(other, 1)
+		other = QuadraticRational.convert(other)
 
 		numerator = self.numerator * other.denominator + other.numerator * self.denominator
 		denominator = self.denominator * other.denominator
@@ -210,10 +225,7 @@ class QuadraticRational:
 		return -self + other
 
 	def __mul__(self, other: Union[int, QuadraticInteger, "QuadraticRational"]) -> "QuadraticRational":
-		if isinstance(other, int):
-			other = QuadraticInteger.from_int(other)
-		if isinstance(other, QuadraticInteger):
-			other = QuadraticRational(other, 1)
+		other = QuadraticRational.convert(other)
 
 		numerator = self.numerator * other.numerator
 		denominator = self.denominator * other.denominator
@@ -235,16 +247,13 @@ class QuadraticRational:
 		return QuadraticRational(numerator, denominator)
 
 	def __rtruediv__(self, other: Union[int, QuadraticInteger, "QuadraticRational"]) -> "QuadraticRational":
-		if isinstance(other, int):
-			other = QuadraticInteger.from_int(other)
-		if isinstance(other, QuadraticInteger):
-			other = QuadraticRational(other, 1)
+		other = QuadraticRational.convert(other)
 
 		return other / self
 
 	def __pow__(self, exponent: int):
 		if exponent == 0:
-			return type(self)(QuadraticInteger.from_int(1), 1)
+			return QuadraticRational.convert(1)
 
 		if exponent < 0:
 			return 1 / (self ** -exponent)
@@ -255,6 +264,10 @@ class QuadraticRational:
 		if exponent % 2 == 0:
 			return half_power * half_power
 		return half_power * half_power * self
+
+	def __eq__(self, other: Union[int, QuadraticInteger, "QuadraticRational"]):
+		other = QuadraticRational.convert(other)
+		return self.numerator == other.numerator and self.denominator == other.denominator
 		
 	def __repr__(self) -> str:
 		if self.denominator == 1:
@@ -279,10 +292,3 @@ def sqrt(number: int) -> QuadraticInteger:
 
 	return QuadraticInteger[number](np.array([0, coefficient]))
 
-
-def main():
-	print(((sqrt(5) + 1) / 2) ** 9)
-
-
-
-main()
