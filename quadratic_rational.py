@@ -141,6 +141,14 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 	def __eq__(self, other: Union[int, "QuadraticInteger"]) -> bool:
 		other = QuadraticInteger.convert(other)
 		return np.all(self.__products__ == other.__products__) and np.all(self.coefficients == other.coefficients)
+	
+	def __hash__(self) -> int:
+		return hash(
+			(
+				tuple(self.__products__.flatten()),
+				tuple(self.coefficients.flatten()),
+			)
+		)
 
 	def __repr__(self) -> str:
 		res = ""
@@ -276,7 +284,10 @@ class QuadraticRational:
 	def __eq__(self, other: Union[int, QuadraticInteger, "QuadraticRational"]):
 		other = QuadraticRational.convert(other)
 		return self.numerator == other.numerator and self.denominator == other.denominator
-		
+	
+	def __hash__(self) -> int:
+		return hash((self.numerator, self.denominator))
+
 	def __repr__(self) -> str:
 		if self.denominator == 1:
 			return f"{self.numerator}"
