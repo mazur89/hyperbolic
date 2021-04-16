@@ -1,6 +1,5 @@
 from typing import Union, Set
 from drawSvg import Drawing
-from cached_property import cached_property
 import math
 
 
@@ -15,7 +14,7 @@ class Point:
 		self.y = QuadraticRational.convert(y)
 		self.z = QuadraticRational.convert(z)
 
-	@cached_property
+	@property
 	def poincare(self) -> complex:
 		return (self.x.value + self.y.value * 1j) * 2 ** 0.25 / (1 + self.z.value)	
 	
@@ -75,13 +74,13 @@ class Line:
 
 		return type(point)(x, y, z)
 
-	@cached_property
+	@property
 	def r_euclid(self) -> float:
 		assert self.z != 0
 
 		return (((self.x / self.z) ** 2 + (self.y / self.z) ** 2) * sqrt(2) - 1).value ** 0.5
 
-	@cached_property
+	@property
 	def poincare(self) -> complex:
 		assert self.z != 0
 
@@ -211,7 +210,7 @@ class Tiling:
 		self._vertices_to_colours[reflected_vertex] = self._vertices_to_colours[inner_vertex]
 		self._tiles_to_colours[new_tile] = self._vertices_to_colours[inner_vertex] ^ self._tiles_to_colours[inner_tile]
 
-		self._drawing.draw(new_tile, fill=self._colour_values[self._tiles_to_colours[new_tile]])
+		# self._drawing.draw(new_tile, fill=self._colour_values[self._tiles_to_colours[new_tile]])
 
 		return reflected_vertex
 
