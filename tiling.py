@@ -1,4 +1,7 @@
 from typing import Union, Set
+from drawSvg import Drawing
+from cached_property import cached_property
+import math
 
 
 from quadratic_rational import QuadraticRational, sqrt
@@ -12,9 +15,17 @@ class Point:
 		self.y = QuadraticRational.convert(y)
 		self.z = QuadraticRational.convert(z)
 
-	@property
+	@cached_property
 	def poincare(self) -> complex:
 		return (self.x.value + self.y.value * 1j) * 2 ** 0.25 / (1 + self.z.value)	
+	
+	@property
+	def x_euclid(self) -> float:
+		return self.poincare.real
+
+	@property
+	def y_euclid(self) -> float:
+		return self.poincare.imag
 
 	def __eq__(self, other: "Point") -> bool:
 		return self.x == other.x and self.y == other.y
@@ -28,7 +39,7 @@ class Point:
 		)	
 
 	def __repr__(self) -> str:
-		return f"Point(x={self.x}, y={self.y}, z={self.z})"
+		return f"Point(x={self.x_euclid.value * 2 ** 0.25}, y={self.y_euclid.value * 2 ** 0.25})"
 
 
 class Line:
@@ -64,6 +75,28 @@ class Line:
 
 		return type(point)(x, y, z)
 
+	@cached_property
+	def r_euclid(self) -> float:
+		assert self.z != 0
+
+		return (((self.x / self.z) ** 2 + (self.y / self.z) ** 2) * sqrt(2) - 1).value ** 0.5
+
+	@cached_property
+	def poincare(self) -> complex:
+		assert self.z != 0
+
+		return (self.x.value + self.y.value * 1j) * 2 ** 0.25 / self.z.value
+
+	@property
+	def x_euclid(self) -> float:
+		return self.poincare.real
+
+	@property
+	def y_euclid(self) -> float:
+		return self.poincare.imag
+
+
+
 def cosh_distance(point_1: Point, point_2: Point) -> QuadraticRational:
 	return point_1.z * point_2.z - (point_1.x * point_2.x + point_1.y * point_2.y) * sqrt(2)		
 
@@ -78,7 +111,7 @@ class Edge:
 		
 		self.vertex_1 = vertex_1
 		self.vertex_2 = vertex_2
-
+	
 	@property
 	def vertices(self) -> Set[Vertex]:
 		return {self.vertex_1, self.vertex_2}
@@ -95,6 +128,19 @@ class Tile:
 		self.vertex_1 = vertex_1
 		self.vertex_2 = vertex_2
 		self.vertex_3 = vertex_3
+
+	def toDrawables(self, elements, **kwargs):
+		path = elements.Path(**kwargs)
+		self.drawToPath(path)
+		path.Z()
+		return (path,)
+
+	def drawToPath(self, path):
+		path.M(self.vertex_1.x_euclid, self.vertex_1.y_euclid)
+		for start, end in [(self.vertex_1, self.vertex_2), (self.vertex_2, self.vertex_3), (self.vertex_3, self.vertex_1)]:
+			r = Line.from_points(start, end).r_euclid
+			cw = start.x_euclid * end.y_euclid > start.y_euclid * end.x_euclid
+			path.A(r, r, 0, 0, cw, end.x_euclid, end.y_euclid)
 	
 	@property
 	def vertices(self) -> Set[Vertex]:
@@ -120,6 +166,11 @@ class Tiling:
 	
 		self._boundary = [vertex_1, vertex_2, vertex_3]
 
+		self._colour_values = ["#eeeeee", "#111111", "#99bb77", "#bb9977"]
+		self._drawing = Drawing(2, 2, origin='center')
+		self._drawing.draw(Circle(0, 0, 1), fill="#888888")
+		self._drawing.setRenderSize(2000)
+
 		self._populate_data()
 
 	def _populate_data(self):
@@ -139,6 +190,8 @@ class Tiling:
 		for edge in self._edges:
 			self._edges_to_tiles[edge] = {tile}
 
+		self._drawing.draw(tile, fill=self._colour_values[self._tiles_to_colours[tile]])
+
 	def _build_new_tile(self, vertex_1: Vertex, vertex_2: Vertex) -> Vertex:
 		edge = self._edges[Edge(vertex_1, vertex_2)]
 		
@@ -153,10 +206,12 @@ class Tiling:
 		self._add_edge(Edge(vertex_1, reflected_vertex))
 		self._add_edge(Edge(vertex_2, reflected_vertex))
 
-		new_tile = self._add_tile(Tile(vertex_1, vertex_2, reflected_vertex))
+		new_tile = self._add_tile(Tile(vertex_1, reflected_vertex, vertex_2))
 		
 		self._vertices_to_colours[reflected_vertex] = self._vertices_to_colours[inner_vertex]
 		self._tiles_to_colours[new_tile] = self._vertices_to_colours[inner_vertex] ^ self._tiles_to_colours[inner_tile]
+
+		self._drawing.draw(new_tile, fill=self._colour_values[self._tiles_to_colours[new_tile]])
 
 		return reflected_vertex
 
@@ -189,17 +244,23 @@ class Tiling:
 
 	def create_tiles(self, depth: int):
 		if depth == 0:
+			self._drawing.saveSvg('images/logo-depth-{}.svg'.format(depth))
 			return
 
-		if depth > 1:
-			self.create_tiles(depth=depth-1)
+		self.create_tiles(depth=depth-1)
 		
 		print(f"Populating depth {depth}...")
 		new_boundary = [self._build_new_tile(self._boundary[0], self._boundary[-1])]
 		index = 0
-		
+
+		counter = 0
+		num_tiles = (3 * sqrt(3) * ((2 + sqrt(3)) ** depth - (2 - sqrt(3)) ** depth)).as_int()
+
 		while True:
 			new_vertex = self._build_new_tile(new_boundary[-1], self._boundary[index])
+			counter += 1
+			print(f"created {counter} / {num_tiles} tiles...", end="\r")
+
 			if new_vertex in self._boundary:
 				index += 1
 			elif new_vertex in new_boundary:
@@ -210,15 +271,22 @@ class Tiling:
 		self._boundary = new_boundary
 
 		print(f"Populated, found {len(self._tiles)} tiles")
-				
-		
+		self._drawing.saveSvg('images/logo-depth-{}.svg'.format(depth))
+
+class Circle:
+	def __init__(self, x, y, r):
+		self.x, self.y, self.r = x, y, r
+
+	def toDrawables(self, elements, **kwargs):
+		return (elements.Circle(self.x, self.y, self.r, **kwargs),)
+
+			
 def main():
 	point_1 = Vertex(0 * sqrt(2) / 1, sqrt(2) / sqrt(3), (sqrt(2) + 1) / sqrt(3))
-	point_2 = Vertex(sqrt(2) / 2, - 1 / sqrt(6), (sqrt(2) + 1) / sqrt(3))
-	point_3 = Vertex(- sqrt(2) / 2, - 1 / sqrt(6), (sqrt(2) + 1) / sqrt(3))
+	point_2 = Vertex(- sqrt(2) / 2, - 1 / sqrt(6), (sqrt(2) + 1) / sqrt(3))
+	point_3 = Vertex(sqrt(2) / 2, - 1 / sqrt(6), (sqrt(2) + 1) / sqrt(3))
 
 	tiling = Tiling(point_1, point_2, point_3)
-	tiling.create_tiles(depth=5)
-
+	tiling.create_tiles(depth=6)
 
 main()

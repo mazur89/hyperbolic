@@ -1,5 +1,7 @@
 import numpy as np
 from typing import Tuple, Union
+import math
+from cached_property import cached_property
 
 
 class QuadraticIntegerMeta(type):
@@ -83,7 +85,7 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 		numbers = self.__products__[self.coefficients != 0]
 		return self.rebase(tuple(numbers.flatten()))
 
-	@property	
+	@cached_property
 	def value(self) -> float:
 		return np.sum(self.coefficients * np.sqrt(self.__products__))
 	
@@ -137,6 +139,20 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 
 	def __rtruediv__(self, other: Union[int, "QuadraticInteger"]) -> "QuadraticRational":
 		return QuadraticRational(other, self)
+
+	def __pow__(self, exponent: int) -> "QuadraticInteger":
+		if exponent == 0:
+			return QuadraticInteger.convert(1)
+
+		if exponent < 0:
+			return 1 / (self ** -exponent)
+
+		half_exponent = exponent // 2
+		half_power = self ** half_exponent
+
+		if exponent % 2 == 0:
+			return half_power * half_power
+		return half_power * half_power * self
 	
 	def __eq__(self, other: Union[int, "QuadraticInteger"]) -> bool:
 		other = QuadraticInteger.convert(other)
@@ -202,10 +218,13 @@ class QuadraticRational:
 
 	def _reduce_fraction(self):
 		numerator_gcd = self.numerator.coefficients
-		while numerator_gcd.ndim > 0:
+		while isinstance(numerator_gcd, np.ndarray) and numerator_gcd.ndim > 0:
 			numerator_gcd = np.gcd(numerator_gcd[0], numerator_gcd[1])
-		
-		factor = int(np.gcd(numerator_gcd, self.denominator))
+
+		try:
+			factor = int(math.gcd(numerator_gcd, self.denominator))
+		except:
+			raise ValueError(self.numerator, self.denominator, numerator_gcd)
 
 		self.numerator.coefficients //= factor
 		self.denominator //= factor
@@ -216,7 +235,7 @@ class QuadraticRational:
 			return QuadraticRational(number, 1)
 		return number
 	
-	@property
+	@cached_property
 	def value(self) -> float:
 		return self.numerator.value / self.denominator
 	
