@@ -194,7 +194,7 @@ class Tiling:
 	def _build_new_tile(self, vertex_1: Vertex, vertex_2: Vertex) -> Vertex:
 		edge = self._edges[Edge(vertex_1, vertex_2)]
 		
-		# assert len(self._edges_to_tiles[edge]) == 1
+		#assert len(self._edges_to_tiles[edge]) == 1
 		inner_tile = tuple(self._edges_to_tiles[edge])[0]
 		inner_vertex = tuple(inner_tile.vertices - {vertex_1, vertex_2})[0]
 
@@ -210,7 +210,7 @@ class Tiling:
 		self._vertices_to_colours[reflected_vertex] = self._vertices_to_colours[inner_vertex]
 		self._tiles_to_colours[new_tile] = self._vertices_to_colours[inner_vertex] ^ self._tiles_to_colours[inner_tile]
 
-		# self._drawing.draw(new_tile, fill=self._colour_values[self._tiles_to_colours[new_tile]])
+		self._drawing.draw(new_tile, fill=self._colour_values[self._tiles_to_colours[new_tile]])
 
 		return reflected_vertex
 
