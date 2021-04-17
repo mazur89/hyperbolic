@@ -1,6 +1,7 @@
 from typing import Union, Set
 from drawSvg import Drawing
 import math
+import json
 
 
 from quadratic_rational import QuadraticRational, sqrt
@@ -167,8 +168,8 @@ class Tiling:
 
 		self._colour_values = ["#eeeeee", "#111111", "#99bb77", "#bb9977"]
 		self._drawing = Drawing(2, 2, origin='center')
-		self._drawing.draw(Circle(0, 0, 1), fill="#888888")
-		self._drawing.setRenderSize(2000)
+		# self._drawing.draw(Circle(0, 0, 1), fill="#888888")
+		self._drawing.setRenderSize(4096)
 
 		self._populate_data()
 
@@ -240,10 +241,15 @@ class Tiling:
 		self._edges_to_tiles[edge_3].add(tile)
 
 		return tile
+	
+	def _draw(self, depth: int):
+		with open('images/logo-depth-{}-data.json'.format(depth), 'w') as f:
+			json.dump([path.args for path in self._drawing.elements], f, indent=2)
+		self._drawing.saveSvg('images/logo-depth-{}.svg'.format(depth))
 
 	def create_tiles(self, depth: int):
 		if depth == 0:
-			self._drawing.saveSvg('images/logo-depth-{}.svg'.format(depth))
+			self._draw(depth)
 			return
 
 		self.create_tiles(depth=depth-1)
@@ -268,10 +274,10 @@ class Tiling:
 				new_boundary.append(new_vertex)
 
 		self._boundary = new_boundary
+		self._draw(depth)
 
 		print(f"Populated, found {len(self._tiles)} tiles")
-		self._drawing.saveSvg('images/logo-depth-{}.svg'.format(depth))
-
+		
 class Circle:
 	def __init__(self, x, y, r):
 		self.x, self.y, self.r = x, y, r
