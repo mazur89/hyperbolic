@@ -33,8 +33,8 @@ class Point:
 	def __hash__(self) -> int:
 		return hash(
 			(
-				hash(self.x), 
-				hash(self.y),
+				self.x, 
+				self.y,
 			)
 		)	
 
@@ -166,7 +166,7 @@ class Tiling:
 	
 		self._boundary = [vertex_1, vertex_2, vertex_3]
 
-		self._colour_values = ["#eeeeee", "#111111", "#99bb77", "#bb9977"]
+		self._colour_values = ["#eeeeee", "#111111", "#bb9977", "#99bb77"]
 		self._drawing = Drawing(2, 2, origin='center')
 		self._drawing.setRenderSize(4096)
 
