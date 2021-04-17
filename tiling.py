@@ -167,8 +167,7 @@ class Tiling:
 
 		self._colour_values = ["#eeeeee", "#111111", "#99bb77", "#bb9977"]
 		self._drawing = Drawing(2, 2, origin='center')
-		self._drawing.draw(Circle(0, 0, 1), fill="#888888")
-		self._drawing.setRenderSize(2000)
+		self._drawing.setRenderSize(4096)
 
 		self._populate_data()
 
