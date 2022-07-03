@@ -1,15 +1,16 @@
-from typing import Union, Set
+from typing import Set
 from drawSvg import Drawing
-import math
-import json
+import os
+import yaml
 
 
 from quadratic_rational import QuadraticRational, sqrt
 
 
 class Point:
+	__slots__ = ("x", "y", "z")
+
 	def __init__(self, x: QuadraticRational, y: QuadraticRational, z: QuadraticRational):
-		# assert (x ** 2 + y ** 2) * sqrt(2) == z ** 2 - 1, f"invalid coordinates: x={x}, y={y}, z={z}"
 
 		self.x = QuadraticRational.convert(x)
 		self.y = QuadraticRational.convert(y)
@@ -41,8 +42,21 @@ class Point:
 	def __repr__(self) -> str:
 		return f"Point(x={self.x_euclid.value * 2 ** 0.25}, y={self.y_euclid.value * 2 ** 0.25})"
 
+	def to_json(self):
+		return {"x": self.x.to_json(), "y": self.y.to_json(), "z": self.z.to_json()}
+
+	@classmethod
+	def from_json(cls, data):
+		return cls(
+			x=QuadraticRational.from_json(data["x"]),
+			y=QuadraticRational.from_json(data["y"]),
+			z=QuadraticRational.from_json(data["z"]),
+		)
+
 
 class Line:
+	__slots__ = ("x", "y", "z")
+
 	def __init__(self, x: QuadraticRational, y: QuadraticRational, z: QuadraticRational):
 		self.x = x
 		self.y = y
@@ -95,6 +109,16 @@ class Line:
 	def y_euclid(self) -> float:
 		return self.poincare.imag
 
+	def to_json(self):
+		return {"x": self.x.to_json(), "y": self.y.to_json(), "z": self.z.to_json()}
+
+	@classmethod
+	def from_json(cls, data):
+		return cls(
+			x=QuadraticRational.from_json(data["x"]),
+			y=QuadraticRational.from_json(data["y"]),
+			z=QuadraticRational.from_json(data["z"]),
+		)
 
 
 def cosh_distance(point_1: Point, point_2: Point) -> QuadraticRational:
@@ -106,8 +130,9 @@ class Vertex(Point):
 
 
 class Edge:
+	__slots__ = ("vertex_1", "vertex_2")
+
 	def __init__(self, vertex_1: Vertex, vertex_2: Vertex):
-		# assert cosh_distance(vertex_1, vertex_2) == sqrt(2) + 1, cosh_distance(vertex_1, vertex_2)
 		
 		self.vertex_1 = vertex_1
 		self.vertex_2 = vertex_2
@@ -122,8 +147,17 @@ class Edge:
 	def __hash__(self) -> int:
 		return hash(self.vertex_1) + hash(self.vertex_2)
 
+	def to_json(self):
+		return [self.vertex_1, self.vertex_2]
+
+	@classmethod
+	def from_json(cls, data: list):
+		return cls(Vertex.from_json(data[0]), Vertex.from_json(data[1]))
+
 
 class Tile:
+	__slots__ = ("vertex_1", "vertex_2", "vertex_3")
+
 	def __init__(self, vertex_1: Vertex, vertex_2: Vertex, vertex_3: Vertex):
 		self.vertex_1 = vertex_1
 		self.vertex_2 = vertex_2
@@ -152,6 +186,13 @@ class Tile:
 	def __hash__(self):
 		return hash(self.vertex_1) + hash(self.vertex_2) + hash(self.vertex_3)
 
+	def to_json(self):
+		return [self.vertex_1.to_json(), self.vertex_2.to_json(), self.vertex_3.to_json()]
+
+	@classmethod
+	def from_json(cls, data):
+		return cls(Vertex.from_json(data[0]), Vertex.from_json(data[1]), Vertex.from_json(data[2]))
+
 
 class Tiling:
 	def __init__(self, vertex_1: Vertex, vertex_2: Vertex, vertex_3: Vertex):
@@ -166,9 +207,7 @@ class Tiling:
 	
 		self._boundary = [vertex_1, vertex_2, vertex_3]
 
-		self._colour_values = ["#eeeeee", "#111111", "#bb9977", "#99bb77"]
-		self._drawing = Drawing(2, 2, origin='center')
-		self._drawing.setRenderSize(4096)
+		self._colour_values = ["#ffffff", "#000000", "#cc6600", "#66cc00"]
 
 		self._populate_data()
 
@@ -189,12 +228,9 @@ class Tiling:
 		for edge in self._edges:
 			self._edges_to_tiles[edge] = {tile}
 
-		self._drawing.draw(tile, fill=self._colour_values[self._tiles_to_colours[tile]])
-
 	def _build_new_tile(self, vertex_1: Vertex, vertex_2: Vertex) -> Vertex:
 		edge = self._edges[Edge(vertex_1, vertex_2)]
 		
-		#assert len(self._edges_to_tiles[edge]) == 1
 		inner_tile = tuple(self._edges_to_tiles[edge])[0]
 		inner_vertex = tuple(inner_tile.vertices - {vertex_1, vertex_2})[0]
 
@@ -209,8 +245,6 @@ class Tiling:
 		
 		self._vertices_to_colours[reflected_vertex] = self._vertices_to_colours[inner_vertex]
 		self._tiles_to_colours[new_tile] = self._vertices_to_colours[inner_vertex] ^ self._tiles_to_colours[inner_tile]
-
-		self._drawing.draw(new_tile, fill=self._colour_values[self._tiles_to_colours[new_tile]])
 
 		return reflected_vertex
 
@@ -241,14 +275,13 @@ class Tiling:
 
 		return tile
 	
-	def _draw(self, depth: int):
-		with open('images/logo-depth-{}-data.json'.format(depth), 'w') as f:
-			json.dump([path.args for path in self._drawing.elements], f, indent=2)
-		self._drawing.saveSvg('images/logo-depth-{}.svg'.format(depth))
+	def _save_data(self, depth: int, path: str):
+		with open(os.path.join(path, 'logo-depth-{}-data.yaml'.format(depth)), 'w') as f:
+			yaml.safe_dump([(key.to_json(), int(value)) for key, value in self._tiles_to_colours.items()], f, indent=2)
 
 	def create_tiles(self, depth: int):
 		if depth == 0:
-			self._draw(depth)
+			self._save_data(depth, path="images")
 			return
 
 		self.create_tiles(depth=depth-1)
@@ -273,24 +306,6 @@ class Tiling:
 				new_boundary.append(new_vertex)
 
 		self._boundary = new_boundary
-		self._draw(depth)
+		self._save_data(depth, path="images")
 
 		print(f"Populated, found {len(self._tiles)} tiles")
-		
-class Circle:
-	def __init__(self, x, y, r):
-		self.x, self.y, self.r = x, y, r
-
-	def toDrawables(self, elements, **kwargs):
-		return (elements.Circle(self.x, self.y, self.r, **kwargs),)
-
-			
-def main():
-	point_1 = Vertex(0 * sqrt(2) / 1, sqrt(2) / sqrt(3), (sqrt(2) + 1) / sqrt(3))
-	point_2 = Vertex(- sqrt(2) / 2, - 1 / sqrt(6), (sqrt(2) + 1) / sqrt(3))
-	point_3 = Vertex(sqrt(2) / 2, - 1 / sqrt(6), (sqrt(2) + 1) / sqrt(3))
-
-	tiling = Tiling(point_1, point_2, point_3)
-	tiling.create_tiles(depth=6)
-
-main()

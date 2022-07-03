@@ -1,7 +1,6 @@
 import numpy as np
 from typing import Tuple, Union
 import math
-from cached_property import cached_property
 
 
 class QuadraticIntegerMeta(type):
@@ -48,16 +47,18 @@ class QuadraticIntegerMeta(type):
 			index[axis] = 1
 			numbers.append(products[tuple(index)])
 		
-		return reversed(tuple(numbers))
+		return tuple(reversed(tuple(numbers)))
 
 
 class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 	__numbers__ = ()
 	__products__ = np.array(1)
+	__slots__ = ("coefficients", "value")
 
 	def __init__(self, coefficients: np.ndarray):
 		assert coefficients.shape == self.__products__.shape
 		self.coefficients = coefficients
+		self.value = np.sum(self.coefficients * np.sqrt(self.__products__))
 	
 	def as_int(self) -> int:
 		assert self.__products__.ndim == 0, "{self} cannot be represented as an integer"
@@ -85,10 +86,6 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 		numbers = self.__products__[self.coefficients != 0]
 		return self.rebase(tuple(numbers.flatten()))
 
-	@cached_property
-	def value(self) -> float:
-		return np.sum(self.coefficients * np.sqrt(self.__products__))
-	
 	def __neg__(self) -> "QuadraticInteger":
 		return type(self)(-self.coefficients)
 	
@@ -193,8 +190,23 @@ class QuadraticInteger(metaclass=QuadraticIntegerMeta):
 			return "0"
 		return res
 
+	def _convert_to_int(self, data):
+		if isinstance(data, (list, tuple)):
+			return [self._convert_to_int(value) for value in data]
+		return int(data)
+
+	def to_json(self):
+		return {"numbers": self._convert_to_int(self.__numbers__), "coefficients": self._convert_to_int(self.coefficients.tolist())}
+
+	@classmethod
+	def from_json(cls, data: dict):
+		klass = cls if len(data["numbers"]) == 0 else cls[tuple(data["numbers"])]
+		return klass(np.array(data["coefficients"], dtype=np.int64))
+
 
 class QuadraticRational:
+	__slots__ = ("numerator", "denominator", "value")
+
 	def __init__(self, numerator: Union[int, QuadraticInteger], denominator: Union[int, QuadraticInteger]):
 		if isinstance(denominator, QuadraticInteger):
 			while denominator.__products__.ndim > 0:
@@ -213,6 +225,7 @@ class QuadraticRational:
 
 		self.numerator = numerator
 		self.denominator = denominator
+		self.value = self.numerator.value / self.denominator
 
 		self._reduce_fraction()
 
@@ -234,10 +247,6 @@ class QuadraticRational:
 		if not isinstance(number, QuadraticRational):
 			return QuadraticRational(number, 1)
 		return number
-	
-	@cached_property
-	def value(self) -> float:
-		return self.numerator.value / self.denominator
 	
 	def __neg__(self) -> "QuadraticRational":
 		return type(self)(-self.numerator, self.denominator)
@@ -316,6 +325,13 @@ class QuadraticRational:
 			numerator_str = f"({self.numerator})"
 		
 		return f"{numerator_str} / {self.denominator}"
+
+	def to_json(self):
+		return {"numerator": self.numerator.to_json(), "denominator": int(self.denominator)}
+
+	@classmethod
+	def from_json(cls, data: dict):
+		return cls(numerator=QuadraticInteger.from_json(data["numerator"]), denominator=data["denominator"])
 
 
 def sqrt(number: int) -> QuadraticInteger:
